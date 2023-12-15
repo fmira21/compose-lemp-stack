@@ -1,0 +1,130 @@
+version: "3.5"
+
+networks:
+    supernetwork:
+        name: supernetwork
+
+volumes:
+    wordpress:
+        name: wordpress
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: $HOME/data/wordpress
+    mysql:
+        name: mysql
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: $HOME/data/mysql
+    sphinx:
+        name: sphinx
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: $HOME/data/sphinx
+    docs:
+        name: docs
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: $HOME/data/docs        
+
+services:
+    nginx:
+        container_name: nginx_alpine
+        build:
+            context: ./nginx
+        image: nginx
+        restart: always
+        ports:
+            - 443:443
+        volumes:
+             - wordpress:/var/www/wordpress
+        networks:
+            - supernetwork
+        depends_on:
+            - wordpress
+    
+    wordpress:
+        container_name: wordpress_alpine
+        build:
+            context: ./wordpress
+        image: wordpress
+        restart: always
+        volumes:
+            - wordpress:/var/www/wordpress
+        networks:
+            - supernetwork
+        depends_on:
+            - mysql
+        environment:
+            - WP_DB=${WP_DB}
+            - DB_USER=${DB_USER}
+            - DB_PASS=${DB_PASS}
+            - DB_HOST=${DB_HOST}
+    mysql:
+        container_name: mysql_alpine
+        build:
+            context: ./mysql
+        image: mysql
+        restart: always
+        volumes:
+            - mysql:/var/lib/mysql
+        networks:
+            - supernetwork
+        environment:
+            - SQL_DB=${SQL_DB}
+            - SQL_DB_USER=${SQL_DB_USER}
+            - SQL_DB_PASS=${SQL_DB_PASS}
+            - SQL_ROOT_PASS=${SQL_ROOT_PASS}
+            - NETWORK=${NETWORK}
+    ftp:
+        container_name: ftp_debian
+        build:
+            context: ./ftp
+        tty: true
+        image: ftp
+        restart: always
+        ports:
+            - 21000:21000
+            - "21:21"
+        volumes:
+            - wordpress:/wp_data
+        networks:
+            - supernetwork
+        depends_on:
+            - wordpress
+    
+    redis:
+        container_name: redis_debian
+        build:
+            context: ./redis
+        tty: true
+        image: redis
+        restart: always
+        ports:
+            - "6379:6379"
+        networks:
+            - supernetwork
+
+    adminer:
+        container_name: adminer_debian
+        build:
+            context: ./adminer
+        tty: true
+        image: adminer
+        restart: always
+        depends_on:
+            - wordpress
+        ports:
+            - 8080:8080
+        networks:
+            - supernetwork
+        volumes:
+            - wordpress:/var/www/wordpress/ 
+
